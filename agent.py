@@ -1,12 +1,13 @@
 from dotenv import load_dotenv
 from langchain_anthropic import ChatAnthropic
-from langchain.agents import AgentExecutor, create_tool_calling_agent
-from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.tools import tool
+from langgraph.prebuilt import create_react_agent
 
 load_dotenv()
 
 MODEL = "claude-opus-4-8"
+SYSTEM_PROMPT = "You are an expert Dota 2 coach. Help the user improve their gameplay with data-driven advice."
 
 
 @tool
@@ -30,19 +31,17 @@ llm = ChatAnthropic(
     thinking={"type": "adaptive"},
 )
 
-prompt = ChatPromptTemplate.from_messages([
-    ("system", "You are an expert Dota 2 coach. Help the user improve their gameplay with data-driven advice."),
-    ("human", "{input}"),
-    ("placeholder", "{agent_scratchpad}"),
-])
-
-agent = create_tool_calling_agent(llm, tools, prompt)
-agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True)
+graph = create_react_agent(llm, tools=tools)
 
 
 def chat(message: str) -> str:
-    result = agent_executor.invoke({"input": message})
-    return result["output"]
+    result = graph.invoke({
+        "messages": [
+            SystemMessage(content=SYSTEM_PROMPT),
+            HumanMessage(content=message),
+        ]
+    })
+    return result["messages"][-1].content
 
 
 if __name__ == "__main__":

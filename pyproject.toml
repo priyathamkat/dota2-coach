@@ -1,0 +1,12 @@
+[project]
+name = "dota2-coach"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = [
+    "langchain-anthropic",
+    "langgraph",
+    "python-dotenv",
+]
+
+[dependency-groups]
+dev = []
