@@ -619,7 +619,15 @@
             const resp = await fetch('/api/chat', {
               method:  'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ message: msg }),
+              body: JSON.stringify({
+                message:     msg,
+                my_picks:    this.myPicks,
+                enemy_picks: this.enemyPicks,
+                bans:        this.allBans,
+                my_role:     this.myRole,
+                my_faction:  this.myFaction,
+                rank:        this.rank,
+              }),
             });
             const data = await resp.json();
             this.chatHistory.push({ id: `c${id}`, role: 'coach', text: data.response });
