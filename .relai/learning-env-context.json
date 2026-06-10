@@ -1,0 +1,54 @@
+{
+  "schema_version": "relai.learning_env_context.v1",
+  "agent": {
+    "entrypoint": "dota2_coach/agent.py",
+    "runner_summary": "The simulator builds a thin adapter around `dota2_coach.agent.graph`, keeps conversation history across turns, and can optionally prepend draft context from `DOTA2_COACH_DRAFT_CONTEXT_JSON`."
+  },
+  "components": [
+    {
+      "id": "get_hero_winrates",
+      "import_path": "dota2_coach.agent:get_hero_winrates",
+      "when_to_use": "Use for regressions where the coach cites incorrect hero win rates or rank-bracket performance.",
+      "live_mock_targets": [
+        "get_hero_winrates"
+      ],
+      "required_mock_targets": [],
+      "input_guidance": "Build `FixedComponentInput(kwargs={...})` with `hero_name` set to the exact hero name mentioned in the log.",
+      "output_guidance": "Evaluate the returned text for the expected hero, bracket labels, and win-rate formatting."
+    },
+    {
+      "id": "get_hero_matchups",
+      "import_path": "dota2_coach.agent:get_hero_matchups",
+      "when_to_use": "Use for regressions in counter-pick reasoning or matchup summaries for a single hero.",
+      "live_mock_targets": [
+        "get_hero_matchups"
+      ],
+      "required_mock_targets": [],
+      "input_guidance": "Build `FixedComponentInput(kwargs={...})` with `hero_name` set to the hero whose counters or weaknesses need verification.",
+      "output_guidance": "Evaluate the returned text for the named hero, countered-by list, and best-matchup list."
+    },
+    {
+      "id": "get_draft_recommendations",
+      "import_path": "dota2_coach.agent:get_draft_recommendations",
+      "when_to_use": "Use for isolated recommendation-ranking regressions that do not require the full chat loop.",
+      "live_mock_targets": [
+        "get_draft_recommendations"
+      ],
+      "required_mock_targets": [],
+      "input_guidance": "Build `FixedComponentInput(kwargs={...})` with named arguments matching the tool schema: `enemy_picks`, `my_role`, `rank`, `my_picks`, and `bans`, using the same comma-separated hero strings seen in the log.",
+      "output_guidance": "Evaluate the returned recommendation list for hero ordering, role filtering, and the reported score fields."
+    }
+  ],
+  "log_notes": [
+    "User turns appear as user_message events.",
+    "Assistant replies appear as agent_message events.",
+    "LangGraph tool requests appear as tool_call events and tool outputs appear as tool_result events."
+  ],
+  "learning_env_guidance": [
+    "Use agent targets for conversational coaching behavior, tool choice, and multi-turn follow-up handling.",
+    "Use component targets for isolated tool regressions in win-rate lookup, matchup lookup, or recommendation scoring.",
+    "Mock the OpenDota-backed tools by default for deterministic agent tests unless the scenario is explicitly about live tool behavior.",
+    "Use `DOTA2_COACH_DRAFT_CONTEXT_JSON` when a regression depends on a fixed draft state that the user message alone does not capture.",
+    "Use LLMJudgeEvaluator for coaching quality and draft reasoning; use CodeEvaluator for deterministic checks on tool usage, hero ordering, or transcript content."
+  ]
+}

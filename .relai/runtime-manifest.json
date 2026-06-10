@@ -1,0 +1,24 @@
+{
+  "schema_version": "relai.runtime_manifest.v1",
+  "env": [
+    {
+      "name": "ANTHROPIC_API_KEY",
+      "required": true,
+      "sensitive": true,
+      "reason": "Needed by the LangGraph agent's Anthropic chat model."
+    },
+    {
+      "name": "OPENDOTA_API_KEY",
+      "required": false,
+      "sensitive": true,
+      "reason": "Optional OpenDota API key that reduces rate limiting for live tool calls."
+    },
+    {
+      "name": "DOTA2_COACH_DRAFT_CONTEXT_JSON",
+      "required": false,
+      "sensitive": false,
+      "reason": "Optional JSON object injected into the simulator system prompt to provide a fixed draft context."
+    }
+  ],
+  "files": []
+}

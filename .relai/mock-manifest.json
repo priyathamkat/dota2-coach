@@ -1,0 +1,32 @@
+{
+  "schema_version": "relai.mock_manifest.v1",
+  "items": [
+    {
+      "id": "get_hero_winrates",
+      "target": "get_hero_winrates",
+      "kind": "tool",
+      "final_policy": "any",
+      "reason": "Calls the live OpenDota hero stats API through httpx, which is nondeterministic and network-dependent.",
+      "source": "dota2_coach/agent.py",
+      "cannot_mock_reason": null
+    },
+    {
+      "id": "get_hero_matchups",
+      "target": "get_hero_matchups",
+      "kind": "tool",
+      "final_policy": "any",
+      "reason": "Calls the live OpenDota matchup API through httpx, which is nondeterministic and network-dependent.",
+      "source": "dota2_coach/agent.py",
+      "cannot_mock_reason": null
+    },
+    {
+      "id": "get_draft_recommendations",
+      "target": "get_draft_recommendations",
+      "kind": "tool",
+      "final_policy": "any",
+      "reason": "Uses live OpenDota hero and matchup data to score recommendations, so results vary with network state and external data.",
+      "source": "dota2_coach/agent.py",
+      "cannot_mock_reason": null
+    }
+  ]
+}
