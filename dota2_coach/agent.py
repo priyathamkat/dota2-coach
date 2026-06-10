@@ -3,7 +3,7 @@ from dotenv import load_dotenv
 from langchain_anthropic import ChatAnthropic
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.tools import tool
-from langgraph.prebuilt import create_react_agent  # type: ignore[deprecated]
+from langchain.agents import create_agent
 
 from dota2_coach.opendota import (
     OPENDOTA_BASE,
@@ -153,7 +153,7 @@ def get_draft_recommendations(
 
 tools = [get_hero_winrates, get_hero_matchups, get_draft_recommendations]
 llm = ChatAnthropic(model_name=MODEL, thinking={"type": "adaptive"})  # type: ignore[call-arg]
-graph = create_react_agent(llm, tools=tools)  # type: ignore[deprecated,attr-defined]
+graph = create_agent(llm, tools=tools)
 
 
 # ---------------------------------------------------------------------------
