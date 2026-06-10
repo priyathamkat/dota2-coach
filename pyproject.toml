@@ -1,8 +1,13 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
 [project]
 name = "dota2-coach"
 version = "0.1.0"
 requires-python = ">=3.11"
 dependencies = [
+    "anthropic",
     "langchain-anthropic",
     "langgraph",
     "python-dotenv",
@@ -10,6 +15,9 @@ dependencies = [
     "fastapi",
     "uvicorn[standard]",
 ]
+
+[project.scripts]
+dota2-coach = "dota2_coach.app:app"
 
 [dependency-groups]
 dev = []

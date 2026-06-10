@@ -1,4 +1,5 @@
 import asyncio
+from pathlib import Path
 
 import httpx
 from anthropic import Anthropic
@@ -8,12 +9,16 @@ from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
-from opendota import RANK_LABELS, _heroes, fetch_hero_stats, fetch_matchups_async, hero_image_url
+from dota2_coach.opendota import (
+    RANK_LABELS, _heroes, fetch_hero_stats, fetch_matchups_async, hero_image_url,
+)
 
 load_dotenv()
 
 app = FastAPI()
 anthropic_client = Anthropic()
+
+UI_HTML = Path(__file__).parent.parent / "ui.html"
 
 MIN_GAMES = 200
 MODEL = "claude-sonnet-4-6"
@@ -44,7 +49,7 @@ def warm_cache():
 
 @app.get("/")
 def index():
-    return FileResponse("ui.html")
+    return FileResponse(UI_HTML)
 
 
 # ---------------------------------------------------------------------------
@@ -98,9 +103,9 @@ async def recommend(req: RecommendRequest):
             enemy_id, matchup_rows = item
             matchup_index[enemy_id] = {row["hero_id"]: row for row in matchup_rows}
 
-    excluded      = set(req.my_picks) | set(req.enemy_picks) | set(req.bans)
-    allowed_tags  = set(ROLE_TAGS.get(req.my_role, [])) if req.my_role else set()
-    scored        = []
+    excluded     = set(req.my_picks) | set(req.enemy_picks) | set(req.bans)
+    allowed_tags = set(ROLE_TAGS.get(req.my_role, [])) if req.my_role else set()
+    scored       = []
 
     for h in heroes:
         hid = h["id"]
@@ -217,6 +222,6 @@ class ChatRequest(BaseModel):
 
 @app.post("/api/chat")
 async def chat_endpoint(req: ChatRequest):
-    from agent import chat
+    from dota2_coach.agent import chat
     response = await run_in_threadpool(chat, req.message)
     return {"response": response}

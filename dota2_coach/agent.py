@@ -5,7 +5,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.tools import tool
 from langgraph.prebuilt import create_react_agent
 
-from opendota import (
+from dota2_coach.opendota import (
     OPENDOTA_BASE, RANK_LABELS,
     _params, _heroes, _find_hero,
     fetch_hero_stats,
