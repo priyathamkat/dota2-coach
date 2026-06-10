@@ -164,6 +164,7 @@ name = "dota2-coach"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
+    { name = "httpx" },
     { name = "langchain-anthropic" },
     { name = "langgraph" },
     { name = "python-dotenv" },
@@ -171,6 +172,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
+    { name = "httpx" },
     { name = "langchain-anthropic" },
     { name = "langgraph" },
     { name = "python-dotenv" },
