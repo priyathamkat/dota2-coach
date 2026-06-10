@@ -6,7 +6,7 @@ from langgraph.prebuilt import create_react_agent
 
 load_dotenv()
 
-MODEL = "claude-opus-4-8"
+MODEL = "claude-sonnet-4-6"
 SYSTEM_PROMPT = "You are an expert Dota 2 coach. Help the user improve their gameplay with data-driven advice."
 
 
