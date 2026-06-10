@@ -20,4 +20,7 @@ dependencies = [
 dota2-coach = "dota2_coach.app:app"
 
 [dependency-groups]
-dev = []
+dev = ["ruff", "ty"]
+
+[tool.ty.rules]
+deprecated = "ignore"

@@ -3,12 +3,17 @@ from dotenv import load_dotenv
 from langchain_anthropic import ChatAnthropic
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.tools import tool
-from langgraph.prebuilt import create_react_agent
+from langgraph.prebuilt import create_react_agent  # type: ignore[deprecated]
 
 from dota2_coach.opendota import (
-    OPENDOTA_BASE, RANK_LABELS, MIN_GAMES,
-    _params, _heroes, _find_hero,
-    fetch_hero_stats, score_heroes,
+    OPENDOTA_BASE,
+    RANK_LABELS,
+    MIN_GAMES,
+    _params,
+    _heroes,
+    _find_hero,
+    fetch_hero_stats,
+    score_heroes,
 )
 
 load_dotenv()
@@ -25,6 +30,7 @@ _BASE_SYSTEM_PROMPT = (
 # Tools
 # ---------------------------------------------------------------------------
 
+
 @tool
 def get_hero_winrates(hero_name: str) -> str:
     """Get win rates for a Dota 2 hero broken down by rank bracket."""
@@ -38,12 +44,12 @@ def get_hero_winrates(hero_name: str) -> str:
     lines = [f"Win rates for {hero['localized_name']}:"]
     for rank_num, label in RANK_LABELS.items():
         picks = h.get(f"{rank_num}_pick", 0)
-        wins  = h.get(f"{rank_num}_win", 0)
+        wins = h.get(f"{rank_num}_win", 0)
         if picks > 0:
             lines.append(f"  {label}: {wins / picks * 100:.1f}%  ({picks:,} picks)")
 
     pro_picks = h.get("pro_pick", 0)
-    pro_wins  = h.get("pro_win", 0)
+    pro_wins = h.get("pro_win", 0)
     if pro_picks > 0:
         lines.append(f"  Pro: {pro_wins / pro_picks * 100:.1f}%  ({pro_picks} picks)")
 
@@ -105,6 +111,7 @@ def get_draft_recommendations(
         my_picks: comma-separated hero names already on your team
         bans: comma-separated banned hero names
     """
+
     def _resolve(names_str: str) -> list[int]:
         ids = []
         for name in names_str.split(","):
@@ -145,13 +152,14 @@ def get_draft_recommendations(
 # ---------------------------------------------------------------------------
 
 tools = [get_hero_winrates, get_hero_matchups, get_draft_recommendations]
-llm   = ChatAnthropic(model=MODEL, thinking={"type": "adaptive"})
-graph = create_react_agent(llm, tools=tools)
+llm = ChatAnthropic(model_name=MODEL, thinking={"type": "adaptive"})  # type: ignore[call-arg]
+graph = create_react_agent(llm, tools=tools)  # type: ignore[deprecated,attr-defined]
 
 
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
+
 
 def _draft_context_block(draft_context: dict) -> str:
     """Format a draft context dict as a readable block for the system prompt."""
@@ -167,11 +175,15 @@ def _draft_context_block(draft_context: dict) -> str:
 
     my_picks = draft_context.get("my_picks", [])
     if my_picks:
-        lines.append("My team: " + ", ".join(hero_names.get(i, str(i)) for i in my_picks))
+        lines.append(
+            "My team: " + ", ".join(hero_names.get(i, str(i)) for i in my_picks)
+        )
 
     enemy_picks = draft_context.get("enemy_picks", [])
     if enemy_picks:
-        lines.append("Enemy picks: " + ", ".join(hero_names.get(i, str(i)) for i in enemy_picks))
+        lines.append(
+            "Enemy picks: " + ", ".join(hero_names.get(i, str(i)) for i in enemy_picks)
+        )
 
     bans = draft_context.get("bans", [])
     if bans:
@@ -187,19 +199,21 @@ def chat(message: str, draft_context: dict | None = None) -> str:
     if draft_context:
         system = system + "\n\n" + _draft_context_block(draft_context)
 
-    result = graph.invoke({
-        "messages": [
-            SystemMessage(content=system),
-            HumanMessage(content=message),
-        ]
-    })
+    result = graph.invoke(
+        {
+            "messages": [
+                SystemMessage(content=system),
+                HumanMessage(content=message),
+            ]
+        }
+    )
     return result["messages"][-1].content
 
 
 def explain_draft(top_heroes: list[dict], draft_context: dict) -> str:
     """Generate a concise Top 3 analysis for the given pre-scored hero list."""
     hero_lines = "\n".join(
-        f"{i+1}. {h['name']} "
+        f"{i + 1}. {h['name']} "
         f"(counter {h['counter_score']:+.3f}, base WR {h['base_score']:+.3f})"
         for i, h in enumerate(top_heroes[:3])
     )

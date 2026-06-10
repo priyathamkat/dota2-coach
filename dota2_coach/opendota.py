@@ -7,18 +7,23 @@ OPENDOTA_BASE = "https://api.opendota.com/api"
 CDN_BASE = "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/heroes"
 
 RANK_LABELS = {
-    "1": "Herald", "2": "Guardian", "3": "Crusader",
-    "4": "Archon",  "5": "Legend",  "6": "Ancient",
-    "7": "Divine",  "8": "Immortal",
+    "1": "Herald",
+    "2": "Guardian",
+    "3": "Crusader",
+    "4": "Archon",
+    "5": "Legend",
+    "6": "Ancient",
+    "7": "Divine",
+    "8": "Immortal",
 }
 
 MIN_GAMES = 200
 
 # Maps UI role labels → OpenDota role tags a hero must have at least one of
 ROLE_TAGS: dict[str, list[str]] = {
-    "Carry":        ["Carry"],
-    "Mid":          ["Nuker", "Escape"],
-    "Offlane":      ["Initiator", "Durable", "Disabler"],
+    "Carry": ["Carry"],
+    "Mid": ["Nuker", "Escape"],
+    "Offlane": ["Initiator", "Durable", "Disabler"],
     "Soft Support": ["Support", "Disabler"],
     "Hard Support": ["Support"],
 }
@@ -81,9 +86,7 @@ async def fetch_matchups_async(
     """Fetch matchup rows for one hero; returns (hero_id, rows). Uses process-level cache."""
     if hero_id in _matchup_cache:
         return hero_id, _matchup_cache[hero_id]
-    r = await client.get(
-        f"{OPENDOTA_BASE}/heroes/{hero_id}/matchups", params=_params()
-    )
+    r = await client.get(f"{OPENDOTA_BASE}/heroes/{hero_id}/matchups", params=_params())
     r.raise_for_status()
     data = r.json()
     _matchup_cache[hero_id] = data
@@ -106,7 +109,7 @@ def score_heroes(
         rows = fetch_matchups_sync(eid)
         matchup_index[eid] = {row["hero_id"]: row for row in rows}
 
-    excluded     = set(my_pick_ids) | set(enemy_pick_ids) | set(ban_ids)
+    excluded = set(my_pick_ids) | set(enemy_pick_ids) | set(ban_ids)
     allowed_tags = set(ROLE_TAGS.get(my_role, [])) if my_role else set()
     scored: list[dict] = []
 
@@ -119,10 +122,10 @@ def score_heroes(
         if allowed_tags and not (allowed_tags & set(candidate_roles)):
             continue
 
-        s     = hero_stats.get(hid, {})
+        s = hero_stats.get(hid, {})
         picks = s.get(f"{rank}_pick", 0)
-        wins  = s.get(f"{rank}_win", 0)
-        base  = (wins / picks - 0.50) if picks > 0 else 0.0
+        wins = s.get(f"{rank}_win", 0)
+        base = (wins / picks - 0.50) if picks > 0 else 0.0
 
         advantages = []
         for eid in enemy_pick_ids:
@@ -133,15 +136,17 @@ def score_heroes(
 
         final = 0.6 * counter + 0.4 * base
 
-        scored.append({
-            "hero_id":       hid,
-            "name":          h["localized_name"],
-            "image_url":     hero_image_url(h["name"]),
-            "roles":         candidate_roles,
-            "final_score":   round(final, 4),
-            "counter_score": round(counter, 4),
-            "base_score":    round(base, 4),
-        })
+        scored.append(
+            {
+                "hero_id": hid,
+                "name": h["localized_name"],
+                "image_url": hero_image_url(h["name"]),
+                "roles": candidate_roles,
+                "final_score": round(final, 4),
+                "counter_score": round(counter, 4),
+                "base_score": round(base, 4),
+            }
+        )
 
     scored.sort(key=lambda x: x["final_score"], reverse=True)
     return scored[:10]
