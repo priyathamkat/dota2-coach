@@ -1,6 +1,3 @@
-import os
-from functools import lru_cache
-
 import httpx
 from dotenv import load_dotenv
 from langchain_anthropic import ChatAnthropic
@@ -8,40 +5,16 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.tools import tool
 from langgraph.prebuilt import create_react_agent
 
+from opendota import (
+    OPENDOTA_BASE, RANK_LABELS,
+    _params, _heroes, _find_hero,
+    fetch_hero_stats,
+)
+
 load_dotenv()
 
 MODEL = "claude-sonnet-4-6"
-OPENDOTA_BASE = "https://api.opendota.com/api"
 SYSTEM_PROMPT = "You are an expert Dota 2 coach. Help the user improve their gameplay with data-driven advice."
-
-RANK_LABELS = {
-    "1": "Herald", "2": "Guardian", "3": "Crusader",
-    "4": "Archon", "5": "Legend",  "6": "Ancient",
-    "7": "Divine", "8": "Immortal",
-}
-
-
-def _params() -> dict:
-    key = os.getenv("OPENDOTA_API_KEY")
-    return {"api_key": key} if key else {}
-
-
-@lru_cache(maxsize=1)
-def _heroes() -> list[dict]:
-    r = httpx.get(f"{OPENDOTA_BASE}/heroes", params=_params())
-    r.raise_for_status()
-    return r.json()
-
-
-def _find_hero(name: str) -> dict:
-    lower = name.lower()
-    for h in _heroes():
-        if h["localized_name"].lower() == lower:
-            return h
-    for h in _heroes():
-        if lower in h["localized_name"].lower():
-            return h
-    raise ValueError(f"Hero '{name}' not found — check spelling.")
 
 
 # ---------------------------------------------------------------------------
@@ -52,10 +25,7 @@ def _find_hero(name: str) -> dict:
 def get_hero_winrates(hero_name: str) -> str:
     """Get win rates for a Dota 2 hero broken down by rank bracket."""
     hero = _find_hero(hero_name)
-
-    r = httpx.get(f"{OPENDOTA_BASE}/heroStats", params=_params())
-    r.raise_for_status()
-    stats = {h["id"]: h for h in r.json()}
+    stats = fetch_hero_stats()
 
     h = stats.get(hero["id"])
     if not h:

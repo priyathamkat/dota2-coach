@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dota 2 Draft Coach</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            radiant: '#4ade80',
+            dire: '#f87171',
+          }
+        }
+      }
+    }
+  </script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <style>
+    [x-cloak] { display: none !important; }
+    body { background: #0a0e14; }
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: #1a2030; }
+    ::-webkit-scrollbar-thumb { background: #374151; border-radius: 3px; }
+    .hero-img { object-fit: cover; object-position: center top; }
+    .score-bar-fill { transition: width 0.3s ease; }
+  </style>
+</head>
+<body class="text-gray-100 min-h-screen" x-data="draftApp()" x-cloak>
+
+  <!-- ── HEADER ─────────────────────────────────────────────────────────── -->
+  <header class="bg-gray-900 border-b border-gray-700/50 px-5 py-2.5 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <span class="text-yellow-400 font-bold text-lg tracking-wide">DOTA 2 DRAFT COACH</span>
+      <span class="text-gray-600 text-sm">All-Pick</span>
+    </div>
+    <div class="flex items-center gap-3">
+      <span class="text-gray-500 text-xs">Rank</span>
+      <select x-model.number="rank" @change="fetchRecommendations()"
+        class="bg-gray-800 text-white text-sm rounded px-2 py-1 border border-gray-700 focus:border-yellow-500 focus:outline-none cursor-pointer">
+        <template x-for="r in rankOptions" :key="r.value">
+          <option :value="r.value" x-text="r.label" :selected="r.value === rank"></option>
+        </template>
+      </select>
+      <button @click="resetDraft()"
+        class="text-xs text-gray-500 hover:text-gray-300 border border-gray-700 hover:border-gray-500 px-2 py-1 rounded transition-colors">
+        Reset
+      </button>
+    </div>
+  </header>
+
+  <!-- ── CONTROLS ───────────────────────────────────────────────────────── -->
+  <div class="bg-gray-900/60 border-b border-gray-700/50 px-5 py-2 flex flex-wrap items-center gap-5">
+    <!-- Faction -->
+    <div class="flex items-center gap-2">
+      <span class="text-gray-500 text-xs uppercase tracking-wider">Faction</span>
+      <button @click="myFaction='radiant'; fetchRecommendations()"
+        :class="myFaction==='radiant' ? 'bg-green-700/80 text-green-100 border-green-600' : 'bg-gray-800 text-gray-400 border-gray-700 hover:border-gray-500'"
+        class="px-3 py-1 rounded text-sm font-medium border transition-colors">
+        Radiant
+      </button>
+      <button @click="myFaction='dire'; fetchRecommendations()"
+        :class="myFaction==='dire' ? 'bg-red-800/80 text-red-100 border-red-700' : 'bg-gray-800 text-gray-400 border-gray-700 hover:border-gray-500'"
+        class="px-3 py-1 rounded text-sm font-medium border transition-colors">
+        Dire
+      </button>
+    </div>
+
+    <!-- Role -->
+    <div class="flex items-center gap-2">
+      <span class="text-gray-500 text-xs uppercase tracking-wider">My Role</span>
+      <template x-for="role in roles" :key="role">
+        <button @click="myRole = myRole===role ? '' : role; fetchRecommendations()"
+          :class="myRole===role ? 'bg-yellow-600/80 text-yellow-100 border-yellow-500' : 'bg-gray-800 text-gray-400 border-gray-700 hover:border-gray-500'"
+          class="px-3 py-1 rounded text-xs font-medium border transition-colors"
+          x-text="role">
+        </button>
+      </template>
+    </div>
+  </div>
+
+  <!-- ── MAIN ───────────────────────────────────────────────────────────── -->
+  <div class="flex h-[calc(100vh-7.5rem)] overflow-hidden">
+
+    <!-- ── DRAFT BOARD ─────────────────────────────────────────────────── -->
+    <div class="flex-1 overflow-y-auto p-4 space-y-4">
+
+      <!-- BANS -->
+      <div class="bg-gray-900/60 rounded-xl border border-gray-700/40 p-4">
+        <div class="text-gray-500 text-xs uppercase tracking-wider mb-3 flex items-center gap-2">
+          <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="9" stroke-width="2"/>
+            <path stroke-linecap="round" stroke-width="2" d="M5.636 5.636l12.728 12.728"/>
+          </svg>
+          Bans — 5 per team
+        </div>
+        <div class="space-y-2">
+          <template x-for="faction in ['radiant','dire']" :key="faction">
+            <div class="flex items-center gap-3">
+              <span class="text-xs font-semibold w-14 shrink-0 capitalize"
+                :class="faction==='radiant' ? 'text-green-400' : 'text-red-400'"
+                x-text="faction">
+              </span>
+              <div class="flex gap-1.5">
+                <template x-for="slot in [0,1,2,3,4]" :key="slot">
+                  <div class="relative group">
+                    <!-- Filled ban slot -->
+                    <template x-if="bans[faction][slot] !== null">
+                      <div class="w-14 h-8 rounded overflow-hidden relative cursor-pointer"
+                        @click="openSlot(faction,'ban',slot)">
+                        <img :src="heroIndex[bans[faction][slot]]?.image_url"
+                          class="hero-img w-full h-full grayscale opacity-50">
+                        <div class="absolute inset-0 flex items-center justify-center">
+                          <svg class="w-4 h-4 text-red-400 drop-shadow" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/>
+                          </svg>
+                        </div>
+                        <button class="absolute -top-1 -right-1 w-4 h-4 bg-gray-900 border border-gray-700 rounded-full hidden group-hover:flex items-center justify-center z-10"
+                          @click.stop="clearSlot(faction,'ban',slot)">
+                          <svg class="w-2.5 h-2.5 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                          </svg>
+                        </button>
+                      </div>
+                    </template>
+                    <!-- Empty ban slot -->
+                    <template x-if="bans[faction][slot] === null">
+                      <button @click="openSlot(faction,'ban',slot)"
+                        class="w-14 h-8 rounded border border-dashed border-gray-700 hover:border-red-800 flex items-center justify-center text-gray-700 hover:text-red-800 transition-colors">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                        </svg>
+                      </button>
+                    </template>
+                  </div>
+                </template>
+              </div>
+            </div>
+          </template>
+        </div>
+      </div>
+
+      <!-- PICKS -->
+      <div class="bg-gray-900/60 rounded-xl border border-gray-700/40 p-4">
+        <div class="text-gray-500 text-xs uppercase tracking-wider mb-3">Picks</div>
+        <div class="overflow-x-auto">
+          <table class="w-full border-separate border-spacing-x-3">
+            <thead>
+              <tr>
+                <th class="w-14"></th>
+                <template x-for="phase in phases" :key="phase.label">
+                  <th class="text-center text-xs text-gray-600 font-medium pb-2" x-text="phase.label"></th>
+                </template>
+              </tr>
+            </thead>
+            <tbody>
+              <template x-for="faction in ['radiant','dire']" :key="faction">
+                <tr>
+                  <td class="text-xs font-semibold capitalize pr-2"
+                    :class="faction==='radiant' ? 'text-green-400' : 'text-red-400'"
+                    x-text="faction">
+                  </td>
+                  <template x-for="phase in phases" :key="phase.label">
+                    <td class="py-1">
+                      <div class="flex gap-1.5">
+                        <template x-for="slot in phase.slots" :key="slot">
+                          <div class="relative group">
+                            <!-- Filled pick slot -->
+                            <template x-if="draft[faction][slot] !== null">
+                              <div class="w-16 h-10 rounded overflow-hidden relative cursor-pointer border"
+                                :class="faction==='radiant' ? 'border-green-800/50' : 'border-red-900/50'"
+                                @click="openSlot(faction,'pick',slot)">
+                                <img :src="heroIndex[draft[faction][slot]]?.image_url"
+                                  class="hero-img w-full h-full">
+                                <div class="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/80 to-transparent px-0.5 py-0.5">
+                                  <span class="text-white text-[9px] leading-none truncate block"
+                                    x-text="heroIndex[draft[faction][slot]]?.name?.split(' ')[0]">
+                                  </span>
+                                </div>
+                                <!-- My pick indicator -->
+                                <template x-if="faction===myFaction">
+                                  <div class="absolute top-0.5 left-0.5 w-1.5 h-1.5 rounded-full"
+                                    :class="myFaction==='radiant' ? 'bg-green-400' : 'bg-red-400'">
+                                  </div>
+                                </template>
+                                <button class="absolute -top-1 -right-1 w-4 h-4 bg-gray-900 border border-gray-700 rounded-full hidden group-hover:flex items-center justify-center z-10"
+                                  @click.stop="clearSlot(faction,'pick',slot)">
+                                  <svg class="w-2.5 h-2.5 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                                  </svg>
+                                </button>
+                              </div>
+                            </template>
+                            <!-- Empty pick slot -->
+                            <template x-if="draft[faction][slot] === null">
+                              <button @click="openSlot(faction,'pick',slot)"
+                                class="w-16 h-10 rounded border border-dashed flex items-center justify-center transition-colors"
+                                :class="faction==='radiant'
+                                  ? 'border-green-900/60 hover:border-green-700 text-green-900 hover:text-green-700'
+                                  : 'border-red-900/60 hover:border-red-700 text-red-900 hover:text-red-700'">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                                </svg>
+                              </button>
+                            </template>
+                          </div>
+                        </template>
+                      </div>
+                    </td>
+                  </template>
+                </tr>
+              </template>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Draft state summary (shown only when some picks are entered) -->
+      <template x-if="myPicks.length > 0 || enemyPicks.length > 0">
+        <div class="text-xs text-gray-600 px-1 flex gap-4">
+          <span>My picks: <span class="text-green-500" x-text="myPicks.length"></span>/5</span>
+          <span>Enemy picks: <span class="text-red-400" x-text="enemyPicks.length"></span>/5</span>
+          <span>Phase: <span class="text-yellow-500" x-text="currentPhase"></span></span>
+        </div>
+      </template>
+
+    </div>
+
+    <!-- ── RECOMMENDATIONS + CHAT ──────────────────────────────────────── -->
+    <div class="w-72 border-l border-gray-700/40 flex flex-col bg-gray-900/40 shrink-0">
+
+      <!-- Recommendations -->
+      <div class="flex-1 overflow-y-auto p-3">
+        <div class="flex items-center justify-between mb-3">
+          <span class="text-gray-500 text-xs uppercase tracking-wider">Recommendations</span>
+          <template x-if="recLoading">
+            <span class="text-yellow-500 text-xs animate-pulse">Updating…</span>
+          </template>
+        </div>
+
+        <template x-if="recommendations.length === 0 && !recLoading">
+          <div class="text-gray-700 text-xs text-center py-10 leading-relaxed">
+            Select your role and<br>enter enemy picks to<br>see recommendations
+          </div>
+        </template>
+
+        <div class="space-y-1">
+          <template x-for="(rec, i) in recommendations" :key="rec.hero_id">
+            <div class="flex items-center gap-2 p-1.5 rounded-lg hover:bg-gray-800/60 cursor-default group">
+              <span class="text-gray-600 text-xs w-4 shrink-0 text-right" x-text="i+1"></span>
+              <div class="w-12 h-7 rounded overflow-hidden shrink-0">
+                <img :src="rec.image_url" class="hero-img w-full h-full">
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="text-sm font-medium leading-tight truncate" x-text="rec.name"></div>
+                <div class="flex flex-wrap gap-0.5 mt-0.5">
+                  <template x-for="role in rec.roles.slice(0,2)" :key="role">
+                    <span class="text-[10px] px-1 bg-gray-800 rounded text-gray-500" x-text="role"></span>
+                  </template>
+                </div>
+                <!-- Score bar -->
+                <div class="mt-1 h-0.5 bg-gray-800 rounded-full">
+                  <div class="score-bar-fill h-0.5 rounded-full bg-yellow-500"
+                    :style="'width:' + scoreBarWidth(rec.final_score) + '%'">
+                  </div>
+                </div>
+              </div>
+              <div class="text-right shrink-0">
+                <span class="text-xs font-mono"
+                  :class="rec.final_score > 0 ? 'text-yellow-400' : 'text-gray-500'"
+                  x-text="(rec.final_score >= 0 ? '+' : '') + (rec.final_score * 100).toFixed(1)">
+                </span>
+              </div>
+            </div>
+          </template>
+        </div>
+      </div>
+
+      <!-- Chat -->
+      <div class="border-t border-gray-700/40 p-3 flex flex-col gap-2">
+        <div class="text-gray-500 text-xs uppercase tracking-wider">Ask Coach</div>
+        <div class="h-28 overflow-y-auto space-y-1.5" id="chat-scroll">
+          <template x-if="chatHistory.length === 0">
+            <div class="text-gray-700 text-xs">Ask about the draft, hero choices, strategy…</div>
+          </template>
+          <template x-for="msg in chatHistory" :key="msg.id">
+            <div :class="msg.role==='user' ? 'text-right' : 'text-left'">
+              <span class="inline-block px-2 py-1 rounded text-xs max-w-[90%] text-left break-words"
+                :class="msg.role==='user'
+                  ? 'bg-gray-700 text-gray-200'
+                  : 'bg-yellow-900/50 text-yellow-100 border border-yellow-800/40'"
+                x-text="msg.text">
+              </span>
+            </div>
+          </template>
+          <template x-if="chatLoading">
+            <div class="text-yellow-600 text-xs animate-pulse">Coach is thinking…</div>
+          </template>
+        </div>
+        <div class="flex gap-1.5">
+          <input x-model="chatInput" @keydown.enter="sendChat()"
+            placeholder="Ask about the draft…"
+            :disabled="chatLoading"
+            class="flex-1 bg-gray-800 text-white text-xs rounded px-2 py-1.5 border border-gray-700 focus:border-yellow-600 focus:outline-none disabled:opacity-50">
+          <button @click="sendChat()" :disabled="chatLoading || !chatInput.trim()"
+            class="bg-yellow-600 hover:bg-yellow-500 disabled:opacity-40 text-white text-xs px-2.5 py-1.5 rounded transition-colors font-medium">
+            Ask
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── HERO PICKER MODAL ────────────────────────────────────────────── -->
+  <div x-show="modalOpen" x-transition:enter="transition ease-out duration-150"
+    x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
+    x-transition:leave="transition ease-in duration-100"
+    x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"
+    @click.self="modalOpen=false"
+    @keydown.escape.window="modalOpen=false"
+    class="fixed inset-0 bg-black/75 flex items-center justify-center z-50 p-4">
+
+    <div class="bg-gray-900 border border-gray-700/50 rounded-2xl w-full max-w-2xl max-h-[85vh] flex flex-col shadow-2xl"
+      @click.stop>
+
+      <!-- Modal header -->
+      <div class="p-3 border-b border-gray-700/50 flex items-center gap-3">
+        <div class="flex-1 relative">
+          <svg class="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+          </svg>
+          <input x-ref="searchInput" x-model="searchQuery"
+            placeholder="Search heroes…"
+            class="w-full bg-gray-800 text-white rounded-lg pl-9 pr-3 py-2 text-sm border border-gray-700 focus:border-yellow-500 focus:outline-none">
+        </div>
+        <div class="text-xs text-gray-600" x-text="filteredHeroes.length + ' heroes'"></div>
+        <button @click="modalOpen=false" class="text-gray-500 hover:text-gray-300 p-1 rounded">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Hero grid -->
+      <div class="overflow-y-auto p-3">
+        <div class="grid grid-cols-7 gap-1.5">
+          <template x-for="hero in filteredHeroes" :key="hero.id">
+            <button @click="!isHeroTaken(hero.id) && selectHero(hero.id)"
+              :disabled="isHeroTaken(hero.id)"
+              :title="hero.name"
+              class="flex flex-col items-center gap-0.5 p-1 rounded-lg transition-colors text-left"
+              :class="isHeroTaken(hero.id)
+                ? 'opacity-25 cursor-not-allowed'
+                : 'hover:bg-gray-800 cursor-pointer'">
+              <div class="w-full aspect-video rounded overflow-hidden">
+                <img :src="hero.image_url" class="hero-img w-full h-full"
+                  loading="lazy" :alt="hero.name"
+                  @error="$el.src='data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 1 1\'%3E%3C/svg%3E'">
+              </div>
+              <span class="text-[10px] text-gray-400 text-center leading-tight w-full truncate" x-text="hero.name"></span>
+            </button>
+          </template>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function draftApp() {
+      return {
+        // ── Config ─────────────────────────────────────────────────────
+        myFaction: 'radiant',
+        myRole:    '',
+        rank:      5,
+        roles:     ['Carry', 'Mid', 'Offlane', 'Soft Support', 'Hard Support'],
+        rankOptions: [
+          {value:1,label:'Herald'},{value:2,label:'Guardian'},{value:3,label:'Crusader'},
+          {value:4,label:'Archon'},{value:5,label:'Legend'},{value:6,label:'Ancient'},
+          {value:7,label:'Divine'},{value:8,label:'Immortal'},
+        ],
+        phases: [
+          {label:'Phase 1', slots:[0,1]},
+          {label:'Phase 2', slots:[2,3]},
+          {label:'Phase 3', slots:[4]},
+        ],
+
+        // ── Data ───────────────────────────────────────────────────────
+        heroes:    [],
+        heroIndex: {},
+
+        // ── Draft state ─────────────────────────────────────────────────
+        draft: {
+          radiant: [null, null, null, null, null],
+          dire:    [null, null, null, null, null],
+        },
+        bans: {
+          radiant: [null, null, null, null, null],
+          dire:    [null, null, null, null, null],
+        },
+
+        // ── Modal ─────────────────────────────────────────────────────
+        modalOpen:   false,
+        modalTarget: null,
+        searchQuery: '',
+
+        // ── Recs ──────────────────────────────────────────────────────
+        recommendations: [],
+        recLoading: false,
+        _recTimer:  null,
+
+        // ── Chat ──────────────────────────────────────────────────────
+        chatInput:   '',
+        chatHistory: [],
+        chatLoading: false,
+        _chatSeq:    0,
+
+        // ── Computed getters ──────────────────────────────────────────
+        get myPicks() {
+          return this.draft[this.myFaction].filter(id => id !== null);
+        },
+        get enemyFaction() {
+          return this.myFaction === 'radiant' ? 'dire' : 'radiant';
+        },
+        get enemyPicks() {
+          return this.draft[this.enemyFaction].filter(id => id !== null);
+        },
+        get allBans() {
+          return [...this.bans.radiant, ...this.bans.dire].filter(id => id !== null);
+        },
+        get filteredHeroes() {
+          const q = this.searchQuery.toLowerCase().trim();
+          if (!q) return this.heroes;
+          return this.heroes.filter(h => h.name.toLowerCase().includes(q));
+        },
+        get currentPhase() {
+          const total = this.myPicks.length + this.enemyPicks.length;
+          if (total <= 4)  return 'Phase 1';
+          if (total <= 8)  return 'Phase 2';
+          return 'Phase 3';
+        },
+
+        // ── Lifecycle ─────────────────────────────────────────────────
+        async init() {
+          const resp = await fetch('/api/heroes');
+          this.heroes = await resp.json();
+          this.heroIndex = Object.fromEntries(this.heroes.map(h => [h.id, h]));
+        },
+
+        // ── Modal ─────────────────────────────────────────────────────
+        openSlot(faction, type, slot) {
+          this.modalTarget = { faction, type, slot };
+          this.searchQuery = '';
+          this.modalOpen   = true;
+          this.$nextTick(() => this.$refs.searchInput?.focus());
+        },
+
+        selectHero(heroId) {
+          const { faction, type, slot } = this.modalTarget;
+          if (type === 'ban') {
+            const updated = [...this.bans[faction]];
+            updated[slot] = heroId;
+            this.bans[faction] = updated;
+          } else {
+            const updated = [...this.draft[faction]];
+            updated[slot] = heroId;
+            this.draft[faction] = updated;
+          }
+          this.modalOpen = false;
+          this.fetchRecommendations();
+        },
+
+        clearSlot(faction, type, slot) {
+          if (type === 'ban') {
+            const updated = [...this.bans[faction]];
+            updated[slot] = null;
+            this.bans[faction] = updated;
+          } else {
+            const updated = [...this.draft[faction]];
+            updated[slot] = null;
+            this.draft[faction] = updated;
+          }
+          this.fetchRecommendations();
+        },
+
+        isHeroTaken(heroId) {
+          return (
+            this.draft.radiant.includes(heroId) ||
+            this.draft.dire.includes(heroId)    ||
+            this.bans.radiant.includes(heroId)  ||
+            this.bans.dire.includes(heroId)
+          );
+        },
+
+        resetDraft() {
+          this.draft = {
+            radiant: [null, null, null, null, null],
+            dire:    [null, null, null, null, null],
+          };
+          this.bans = {
+            radiant: [null, null, null, null, null],
+            dire:    [null, null, null, null, null],
+          };
+          this.recommendations = [];
+        },
+
+        // ── Recommendations ───────────────────────────────────────────
+        fetchRecommendations() {
+          clearTimeout(this._recTimer);
+          this._recTimer = setTimeout(() => this._doFetch(), 150);
+        },
+
+        async _doFetch() {
+          this.recLoading = true;
+          try {
+            const resp = await fetch('/api/recommend', {
+              method:  'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                my_picks:    this.myPicks,
+                enemy_picks: this.enemyPicks,
+                bans:        this.allBans,
+                my_role:     this.myRole,
+                rank:        this.rank,
+              }),
+            });
+            if (resp.ok) this.recommendations = await resp.json();
+          } catch (e) {
+            console.error('Recommend failed:', e);
+          } finally {
+            this.recLoading = false;
+          }
+        },
+
+        // Score bar: map final_score (roughly -0.15 to +0.15) to 0–100%
+        scoreBarWidth(score) {
+          return Math.max(4, Math.min(100, (score + 0.15) / 0.30 * 100));
+        },
+
+        // ── Chat ──────────────────────────────────────────────────────
+        async sendChat() {
+          const msg = this.chatInput.trim();
+          if (!msg || this.chatLoading) return;
+          this.chatInput  = '';
+          this.chatLoading = true;
+          const id = ++this._chatSeq;
+          this.chatHistory.push({ id: `u${id}`, role: 'user', text: msg });
+          this._scrollChat();
+
+          try {
+            const resp = await fetch('/api/chat', {
+              method:  'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ message: msg }),
+            });
+            const data = await resp.json();
+            this.chatHistory.push({ id: `c${id}`, role: 'coach', text: data.response });
+          } catch (e) {
+            this.chatHistory.push({ id: `e${id}`, role: 'coach', text: 'Error contacting coach.' });
+          } finally {
+            this.chatLoading = false;
+            this._scrollChat();
+          }
+        },
+
+        _scrollChat() {
+          this.$nextTick(() => {
+            const el = document.getElementById('chat-scroll');
+            if (el) el.scrollTop = el.scrollHeight;
+          });
+        },
+      };
+    }
+  </script>
+</body>
+</html>
