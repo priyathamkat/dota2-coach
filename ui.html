@@ -278,6 +278,32 @@
         </div>
       </div>
 
+      <!-- Top 3 Analysis -->
+      <div class="border-t border-gray-700/40 p-3 shrink-0">
+        <div class="flex items-center gap-2 mb-2">
+          <span class="text-gray-500 text-xs uppercase tracking-wider">Top 3 Analysis</span>
+          <template x-if="explainLoading">
+            <span class="text-yellow-500 text-xs animate-pulse">Thinking…</span>
+          </template>
+        </div>
+        <template x-if="!explanation && !explainLoading && recommendations.length > 0">
+          <div class="text-gray-700 text-xs italic">Generating analysis…</div>
+        </template>
+        <template x-if="!explanation && !explainLoading && recommendations.length === 0">
+          <div class="text-gray-700 text-xs">Analysis appears once recommendations load.</div>
+        </template>
+        <template x-if="explanation">
+          <div class="text-xs text-gray-300 leading-relaxed space-y-1.5">
+            <template x-for="(line, i) in explanation.split('\n').filter(l => l.trim())" :key="i">
+              <div class="flex gap-1.5">
+                <span class="text-yellow-500 shrink-0 font-bold" x-text="(i+1) + '.'"></span>
+                <span class="text-gray-300" x-text="line.replace(/^\d+\.\s*/, '')"></span>
+              </div>
+            </template>
+          </div>
+        </template>
+      </div>
+
       <!-- Chat -->
       <div class="border-t border-gray-700/40 p-3 flex flex-col gap-2">
         <div class="text-gray-500 text-xs uppercase tracking-wider">Ask Coach</div>
@@ -410,6 +436,10 @@
         recLoading: false,
         _recTimer:  null,
 
+        // ── Analysis ──────────────────────────────────────────────────
+        explanation:    '',
+        explainLoading: false,
+
         // ── Chat ──────────────────────────────────────────────────────
         chatInput:   '',
         chatHistory: [],
@@ -503,6 +533,7 @@
             dire:    [null, null, null, null, null],
           };
           this.recommendations = [];
+          this.explanation = '';
         },
 
         // ── Recommendations ───────────────────────────────────────────
@@ -525,11 +556,47 @@
                 rank:        this.rank,
               }),
             });
-            if (resp.ok) this.recommendations = await resp.json();
+            if (resp.ok) {
+              this.recommendations = await resp.json();
+              this.fetchExplanation();
+            }
           } catch (e) {
             console.error('Recommend failed:', e);
           } finally {
             this.recLoading = false;
+          }
+        },
+
+        fetchExplanation() {
+          if (this.recommendations.length === 0) { this.explanation = ''; return; }
+          this.explanation    = '';
+          this.explainLoading = true;
+          this._doExplain();
+        },
+
+        async _doExplain() {
+          try {
+            const resp = await fetch('/api/explain', {
+              method:  'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                my_picks:    this.myPicks,
+                enemy_picks: this.enemyPicks,
+                bans:        this.allBans,
+                my_role:     this.myRole,
+                my_faction:  this.myFaction,
+                rank:        this.rank,
+                top_heroes:  this.recommendations.slice(0, 3),
+              }),
+            });
+            if (resp.ok) {
+              const data = await resp.json();
+              this.explanation = data.explanation || '';
+            }
+          } catch (e) {
+            console.error('Explain failed:', e);
+          } finally {
+            this.explainLoading = false;
           }
         },
 
