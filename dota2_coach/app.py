@@ -9,6 +9,7 @@ from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
+from dota2_coach.agent import chat, explain_draft
 from dota2_coach.opendota import (
     _heroes,
     fetch_hero_stats,
@@ -158,8 +159,6 @@ async def explain(req: ExplainRequest):
     if not req.top_heroes:
         return {"explanation": ""}
 
-    from dota2_coach.agent import explain_draft
-
     draft_context = {
         "my_faction": req.my_faction,
         "my_role": req.my_role,
@@ -189,8 +188,6 @@ class ChatRequest(BaseModel):
 
 @app.post("/api/chat")
 async def chat_endpoint(req: ChatRequest):
-    from dota2_coach.agent import chat
-
     draft_context = (
         {
             "my_faction": req.my_faction,
